@@ -1,0 +1,31 @@
+<resources>
+    <string name="app_name">SMB Lacak</string>
+    <string name="device_admin_description">Digunakan untuk mengunci perangkat yang diprovisikan secara resmi sebagai perangkat terkelola SMB.</string>
+    <string name="brand_label">SMB LACAK</string>
+    <string name="notification_channel_name">Status SMB Lacak</string>
+    <string name="notification_channel_description">Koneksi dan heartbeat perangkat SMB yang dikelola.</string>
+    <string name="headline">Kelola status perangkat Anda</string>
+    <string name="intro">SMB Lacak hanya dapat diaktifkan dengan kode sekali pakai yang diterbitkan Pusat Unduhan SMB untuk Site dan Team Anda.</string>
+    <string name="status_title">Status agent</string>
+    <string name="status_unknown">Belum terhubung</string>
+    <string name="status_initial_detail">Belum ada aktivasi resmi. Perangkat tidak akan mengirim heartbeat atau menjalankan agent sampai server menerima kode resmi.</string>
+    <string name="registration_title">Aktivasi resmi SMB</string>
+    <string name="registration_code_label">Kode registrasi</string>
+    <string name="registration_code_hint">Gunakan kode sekali pakai dari Pusat Unduhan SMB. Kode dari luar server resmi ditolak.</string>
+    <string name="device_name_label">Nama perangkat</string>
+    <string name="register_button">Daftarkan perangkat</string>
+    <string name="device_details_title">Identitas perangkat</string>
+    <string name="device_id_label">Device ID</string>
+    <string name="agent_controls_title">Koneksi perangkat</string>
+    <string name="start_agent_button">Mulai SMB Lacak</string>
+    <string name="stop_agent_button">Hentikan koneksi</string>
+    <string name="capability_title">Capability yang dilaporkan</string>
+    <string name="capability_summary">Dibaca dari Android; permission yang belum diberikan dilaporkan sebagai tidak tersedia.</string>
+    <string name="notification_permission_required">SMB Lacak membutuhkan izin notifikasi agar service persisten memiliki status yang terlihat.</string>
+    <string name="location_permission_optional">Izin lokasi tidak diberikan. Heartbeat tetap berjalan; permintaan lokasi akan gagal sampai izin Android diaktifkan.</string>
+    <string name="registered_agent_not_started">Pendaftaran berhasil. Mulai koneksi untuk mengirim heartbeat.</string>
+    <string name="agent_stopped">Koneksi dihentikan dari aplikasi. Server memperbarui status setelah heartbeat berakhir.</string>
+    <string name="copy_device_id">Salin Device ID</string>
+    <string name="copied_device_id">Device ID disalin.</string>
+    <string name="api_support_note">Minimum Android 8.0 (API 26). Capability kamera/lokasi bergantung pada perangkat, permission, OS, dan policy.</string>
+</resources>

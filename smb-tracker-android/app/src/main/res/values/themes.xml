@@ -1,0 +1,18 @@
+<resources>
+    <style name="Theme.SmbLacak" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/smb_blue</item>
+        <item name="colorSecondary">@color/smb_green</item>
+        <item name="colorTertiary">#33A6A0</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorOnSecondary">#10243E</item>
+        <item name="colorOnSurface">#14263D</item>
+        <item name="colorOnSurfaceVariant">#52647A</item>
+        <item name="colorOutline">#9AAABC</item>
+        <item name="colorSurface">#FFFFFF</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

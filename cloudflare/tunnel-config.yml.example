@@ -1,0 +1,19 @@
+# Example only. Replace TUNNEL_UUID and credentials path locally after creating
+# a named, locally-managed Cloudflare Tunnel. Never commit the credentials JSON.
+tunnel: TUNNEL_UUID
+credentials-file: C:\ProgramData\cloudflared\TUNNEL_UUID.json
+no-autoupdate: true
+metrics: 127.0.0.1:49312
+
+ingress:
+  - hostname: app.lacaksmbbot.com
+    service: http://127.0.0.1:8080
+  - hostname: api.lacaksmbbot.com
+    service: http://127.0.0.1:8000
+  - hostname: ws.lacaksmbbot.com
+    # cloudflared supports WebSocket upgrades through this HTTP origin.
+    service: http://127.0.0.1:3333
+  - hostname: download.lacaksmbbot.com
+    # No release service is deployed yet. Keep the hostname explicitly unavailable.
+    service: http_status:503
+  - service: http_status:404

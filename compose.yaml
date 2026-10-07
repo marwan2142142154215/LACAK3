@@ -1,0 +1,300 @@
+services:
+  api-test:
+    profiles: ["test"]
+    build:
+      context: ./smb-api
+      dockerfile: Dockerfile.test
+    working_dir: /var/www/html
+    environment:
+      APP_ENV: testing
+      APP_DEBUG: "true"
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres-test
+      DB_PORT: "5432"
+      DB_DATABASE: smb_test
+      DB_USERNAME: smb_test
+      DB_PASSWORD: smb_test_only
+      DB_URL: ""
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+
+  postgres-test:
+    profiles: ["test"]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: smb_test
+      POSTGRES_USER: smb_test
+      POSTGRES_PASSWORD: smb_test_only
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smb_test -d smb_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Copy .env.example to .env and set local values}
+      POSTGRES_USER: ${POSTGRES_USER:?Copy .env.example to .env and set local values}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a local-only database password}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set a local-only Redis password}
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping 2>/dev/null | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  api:
+    build:
+      context: ./smb-api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /var/www/html
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?Set a unique Laravel APP_KEY in .env}
+      APP_URL: https://api.lacaksmbbot.com
+      LOG_CHANNEL: stderr
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-https://app.lacaksmbbot.com}
+      SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:-app.lacaksmbbot.com}
+      SESSION_COOKIE: ${SESSION_COOKIE:-smb_api_session}
+      SESSION_DOMAIN: ${SESSION_DOMAIN:-.lacaksmbbot.com}
+      SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: ${POSTGRES_DB:?Set POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      CACHE_STORE: redis
+      SESSION_DRIVER: database
+      QUEUE_CONNECTION: database
+      FILESYSTEM_DISK: ${FILESYSTEM_DISK:-local}
+      GATEWAY_SHARED_SECRET: ${GATEWAY_SHARED_SECRET:?Set a unique local gateway service secret}
+      GATEWAY_HEALTH_URL: http://gateway:3333/api/v1/health
+      GATEWAY_NOTIFICATION_URL: http://gateway:3333/api/internal/v1/notifications/network-violation
+      CLOUDFLARE_TUNNEL_PROBE_URL: ${CLOUDFLARE_TUNNEL_PROBE_URL:-https://app.lacaksmbbot.com/healthz}
+      DEVICE_LOCATION_RETENTION_DAYS: ${DEVICE_LOCATION_RETENTION_DAYS:-90}
+      SMB_RELEASE_CERT_SHA256: ${SMB_RELEASE_CERT_SHA256:-}
+      REDIS_CLIENT: predis
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      REDIS_PORT: "6379"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ${SMB_STORAGE_PATH:-./runtime/storage}
+        target: /var/www/html/storage/app/private
+
+  api-web:
+    build:
+      context: ./smb-api
+      dockerfile: Dockerfile.nginx
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:80"
+    depends_on:
+      api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/up"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  scheduler:
+    build:
+      context: ./smb-api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: ["php", "artisan", "schedule:work"]
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?Set a unique Laravel APP_KEY in .env}
+      APP_URL: https://api.lacaksmbbot.com
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: ${POSTGRES_DB:?Set POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      CACHE_STORE: redis
+      SESSION_DRIVER: database
+      QUEUE_CONNECTION: database
+      FILESYSTEM_DISK: ${FILESYSTEM_DISK:-local}
+      GATEWAY_SHARED_SECRET: ${GATEWAY_SHARED_SECRET:?Set a unique local gateway service secret}
+      GATEWAY_HEALTH_URL: http://gateway:3333/api/v1/health
+      DEVICE_LOCATION_RETENTION_DAYS: ${DEVICE_LOCATION_RETENTION_DAYS:-90}
+      REDIS_CLIENT: predis
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      REDIS_PORT: "6379"
+    depends_on:
+      api-web:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ${SMB_STORAGE_PATH:-./runtime/storage}
+        target: /var/www/html/storage/app/private
+
+  gateway:
+    build:
+      context: ./smb-gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3333"
+      HOST: 0.0.0.0
+      APP_NAME: SMB Gateway
+      LOG_LEVEL: info
+      APP_KEY: ${GATEWAY_APP_KEY:?Set a unique gateway APP_KEY}
+      APP_URL: https://ws.lacaksmbbot.com
+      LARAVEL_INTERNAL_URL: http://api-web:80
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      GATEWAY_SHARED_SECRET: ${GATEWAY_SHARED_SECRET:?Set a unique gateway service secret}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_API_BASE_URL: ${TELEGRAM_API_BASE_URL:-https://api.telegram.org}
+      WS_PATH: /ws
+      WS_ALLOWED_ORIGINS: ${WS_ALLOWED_ORIGINS:-https://app.lacaksmbbot.com}
+      WS_AUTH_TIMEOUT_MS: "5000"
+      WS_HEARTBEAT_INTERVAL_SECONDS: "30"
+      WS_HEARTBEAT_TIMEOUT_SECONDS: "120"
+      WS_PRESENCE_TTL_SECONDS: "90"
+    ports:
+      - "127.0.0.1:3333:3333"
+    depends_on:
+      api-web:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3333/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  web:
+    build:
+      context: ./smb-web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.lacaksmbbot.com}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      api-web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  queue:
+    build:
+      context: ./smb-api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: ["php", "artisan", "queue:work", "database", "--sleep=3", "--tries=3", "--timeout=90", "--max-time=3600"]
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?Set a unique Laravel APP_KEY in .env}
+      APP_URL: https://api.lacaksmbbot.com
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: ${POSTGRES_DB:?Set POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: database
+      FILESYSTEM_DISK: ${FILESYSTEM_DISK:-local}
+      REDIS_CLIENT: predis
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      REDIS_PORT: "6379"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ${SMB_STORAGE_PATH:-./runtime/storage}
+        target: /var/www/html/storage/app/private
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  postgres_data:
+  redis_data:
